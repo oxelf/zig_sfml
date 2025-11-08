@@ -1,0 +1,35 @@
+.{
+    .name = .sfml,
+    .version = "3.0.2",
+    .fingerprint = 0x80c35f65189c021b,
+    .minimum_zig_version = "0.15.2",
+    .paths = .{
+        "LICENSE",
+        "Library.zig",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .sfml = .{
+            .url = "https://github.com/SFML/SFML/archive/c97c2ef.tar.gz",
+            .hash = "N-V-__8AAIFPnAG2hRMAFi9uTW5e6AEBsHhVeWaWbpVtBAsI",
+        },
+        .freetype = .{
+            .url = "https://github.com/allyourcodebase/freetype/archive/9d847af.tar.gz",
+            .hash = "freetype-2.13.3-C3-WdeyJAAD9z8BeYYQ8N3gNlPI9NvHRxg5039S5vhz7",
+        },
+        .flac = .{
+            .path = "flac",
+        },
+        .vorbis = .{
+            .path = "vorbis",
+        },
+        .sheenbidi = .{
+            .path = "sheenbidi",
+        },
+        .harfbuzz = .{
+            .url = "git+https://github.com/allyourcodebase/harfbuzz/?ref=HEAD#6bb522d22cee0ce1d1446bd59fa5b0417f25303e",
+            .hash = "harfbuzz-8.5.0-Ip1VAqCZAADRh-K2AVujG0N3VAal-AKwkZrvlYOaloyB",
+        },
+    },
+}

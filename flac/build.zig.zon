@@ -1,0 +1,17 @@
+.{
+    .name = .flac,
+    .version = "1.5.0",
+    .fingerprint = 0xd6992f831e2c732f,
+    .minimum_zig_version = "0.15.2",
+    .paths = .{
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .flac = .{
+            .url = "https://github.com/xiph/flac/archive/9547dbc.tar.gz",
+            .hash = "N-V-__8AAHu1RQC992iRzbmvoTMzJnm52iuGIz22ghPFEN05",
+        },
+    },
+}

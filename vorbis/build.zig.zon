@@ -1,0 +1,17 @@
+.{
+    .name = .vorbis,
+    .version = "1.3.7",
+    .fingerprint = 0x808d28d28a5972e0,
+    .minimum_zig_version = "0.15.2",
+    .paths = .{
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .vorbis = .{
+            .url = "https://github.com/xiph/vorbis/archive/851cce9.tar.gz",
+            .hash = "N-V-__8AAMp3SAAYvLOXi6otwWkaNjuEzcq8TNp5T0BemWq5",
+        },
+    },
+}

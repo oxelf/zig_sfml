@@ -1,0 +1,17 @@
+.{
+    .name = .vorbis,
+    .version = "1.3.7",
+    .fingerprint = 0x808d28d28a5972e0,
+    .minimum_zig_version = "0.15.2",
+    .paths = .{
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .sheenbidi = .{
+            .url = "https://github.com/Tehreer/SheenBidi/archive/1c65509.tar.gz",
+            .hash = "N-V-__8AACYnMgEtaSBQ7dOEAIY6cFkOv-6RsskqL6RUcVdH",
+        },
+    },
+}
