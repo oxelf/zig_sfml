@@ -14,7 +14,7 @@ fn sources(gpa: std.mem.Allocator, dir_path: []const u8) ![]const []const u8 {
     defer walk.deinit();
     while (try walk.next()) |entry| {
         if (entry.kind == .file) {
-            if (std.mem.endsWith(u8, entry.basename, ".cpp")) {
+            if (std.mem.endsWith(u8, entry.basename, ".cpp") or std.mem.endsWith(u8, entry.basename, ".c")) {
                 const sentinel_removed: []const u8 = gpa.dupe(u8, entry.path[0..entry.path.len]) catch entry.path;
                 try srcs.append(gpa, sentinel_removed);
             }
@@ -27,6 +27,13 @@ fn sources(gpa: std.mem.Allocator, dir_path: []const u8) ![]const []const u8 {
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const sysroot = b.option([]const u8, "sysroot", "Path to sysroot");
+
+    if (target.result.os.tag == .ios and sysroot == null) {
+        @panic("sysroot is required when targeting iOS");
+    }
+
+    b.sysroot = sysroot;
 
     const gpa = b.allocator;
 
@@ -88,7 +95,19 @@ pub fn build(b: *std.Build) !void {
     audio_mod.addIncludePath(upstream.path("extlibs/headers/minimp3"));
 
     audio_mod.addCMacro("SFML_STATIC", "1");
-    audio_mod.addCMacro("FLAG_NO_DLL", "1");
+    audio_mod.addCMacro("FLAC_NO_DLL", "1");
+    audio_mod.addCMacro("FLAC__NO_DLL", "1");
+
+    if (target.result.os.tag == .ios and target.result.abi == .simulator) {
+        audio_mod.addCMacro("MA_NO_AVX2", "1");
+        audio_mod.addCMacro("MA_NO_NEON", "1");
+        audio_mod.addCMacro("MA_NO_SSE2", "1");
+        audio_mod.addCMacro("MINIMP3_NO_SIMD", "1");
+        audio_mod.addCMacro("MA_DR_MP3_NO_SIMD", "1");
+        audio_mod.addCMacro("MA_DR_FLAC_NO_SIMD", "1");
+        audio_mod.addCMacro("MINIMP3_NO_SSE", "1");
+    }
+
     //audio_mod.addCMacro("SFML_AUDIO_EXPORTS", "1");
     audio_mod.addCMacro("SFML_IS_BIG_ENDIAN", "1");
     audio_mod.addCMacro("MA_USE_STDINT", "1");
@@ -108,7 +127,37 @@ pub fn build(b: *std.Build) !void {
     audio_mod.linkLibrary(vorbis.artifact("vorbis"));
     audio_mod.addIncludePath(vorbis.path("include"));
 
-    audio_mod.addCSourceFile(.{ .file = upstream.path("extlibs/headers/miniaudio/miniaudio.c"), .language = .c });
+    if (target.result.os.tag == .ios) {
+        // audio_mod.addCSourceFile(.{
+        //     .file = upstream.path("extlibs/headers/miniaudio/miniaudio.c"),
+        //     .language = .objective_cpp,
+        //     .flags = &[_][]const u8{
+        //         "-DMA_NO_NEON=1",
+        //         "-DMA_NO_AVX2=1",
+        //         "-DMA_NO_SSE2=1",
+        //         "-DMINIAUDIO_NO_INTRINSICS=1",
+        //         "-DMA_NO_MP3=1",
+        //         "-DMA_USE_STDINT=1",
+        //         "-DSFML_STATIC=1",
+        //     },
+        // });
+        audio_mod.addCSourceFile(.{ .file = upstream.path("src/SFML/Audio/Miniaudio.cpp"), .language = .objective_cpp });
+        // audio_mod.addCSourceFile(.{ .file = upstream.path("src/SFML/Main/MainiOS.mm"), .language = .objective_cpp });
+        //
+        // audio_mod.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/System/Library/Frameworks" }) });
+        // audio_mod.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/System/Library/SubFrameworks" }) });
+        // audio_mod.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/usr/include" }) });
+        // audio_mod.linkFramework("UIKit", .{});
+        // audio_mod.linkFramework("UIUtilities", .{});
+        // audio_mod.linkFramework("QuartzCore", .{});
+        // audio_mod.linkFramework("CoreGraphics", .{});
+        // audio_mod.linkFramework("CoreMotion", .{});
+        // audio_mod.linkFramework("Foundation", .{});
+        // audio_mod.linkFramework("OpenGLES", .{});
+    } else {
+        audio_mod.addCSourceFile(.{ .file = upstream.path("extlibs/headers/miniaudio/miniaudio.c"), .language = .c });
+        audio_mod.addCSourceFile(.{ .file = upstream.path("src/SFML/Audio/Miniaudio.cpp"), .language = .cpp });
+    }
 
     audio_mod.addCSourceFiles(.{
         .root = upstream.path("src/SFML/Audio"),
@@ -117,7 +166,6 @@ pub fn build(b: *std.Build) !void {
             "AudioResource.cpp",
             "InputSoundFile.cpp",
             "Listener.cpp",
-            "Miniaudio.cpp",
             "MiniaudioUtils.cpp",
             "Music.cpp",
             "OutputSoundFIle.cpp",
@@ -138,7 +186,6 @@ pub fn build(b: *std.Build) !void {
             "SoundStream.cpp",
         },
     });
-    if (target.result.os.tag == .windows) {} else {}
 
     const graphics_mod = b.createModule(.{
         .target = target,
@@ -355,13 +402,88 @@ pub fn build(b: *std.Build) !void {
                 });
             },
             .ios => {
-                window_mod.addCSourceFiles(.{
-                    .root = upstream.path("src/SFML/Window/iOS"),
-                    .files = try sources(gpa, upstream.path("src/SFML/Window/iOS").getPath(b)),
+                // window_mod.addCSourceFiles(.{
+                //     .root = upstream.path("src/SFML/Window/iOS"),
+                //     .files = try sources(gpa, upstream.path("src/SFML/Window/iOS").getPath(b)),
+                // });
+
+                window_mod.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/System/Library/Frameworks" }) });
+                window_mod.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/System/Library/SubFrameworks" }) });
+                window_mod.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/usr/include" }) });
+                window_mod.linkFramework("UIKit", .{});
+                window_mod.linkFramework("UIUtilities", .{});
+                window_mod.linkFramework("QuartzCore", .{});
+                window_mod.linkFramework("CoreGraphics", .{});
+                window_mod.linkFramework("CoreMotion", .{});
+                window_mod.linkFramework("Foundation", .{});
+                window_mod.linkFramework("OpenGLES", .{});
+                window_mod.addIncludePath(.{
+                    .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "System/Library/SubFrameworks/UIUtilities.framework/Headers" }),
+                });
+                const ios_sources = &[_][]const u8{
+                    "src/SFML/Window/iOS/ClipboardImpl.mm",
+                    "src/SFML/Window/iOS/EaglContext.mm",
+                    "src/SFML/Window/iOS/InputImpl.mm",
+                    "src/SFML/Window/iOS/JoystickImpl.mm",
+                    "src/SFML/Window/iOS/SensorImpl.mm",
+                    "src/SFML/Window/iOS/VideoModeImpl.mm",
+                    "src/SFML/Window/iOS/WindowImplUIKit.mm",
+                    "src/SFML/Window/iOS/SFAppDelegate.mm",
+                    // "src/SFML/Window/iOS/TestAppDelegate.mm",
+                    "src/SFML/Window/iOS/SFView.mm",
+                    "src/SFML/Window/iOS/SFViewController.mm",
+                    "src/SFML/Window/iOS/SFMain.mm",
+                    //"src/SFML/Main/MainiOS.mm",
+                };
+
+                for (ios_sources) |src| {
+                    window_mod.addCSourceFile(.{
+                        .file = upstream.path(src),
+                        .language = .objective_cpp,
+                        .flags = &.{"-fobjc-arc"},
+                    });
+                }
+                window_mod.addCSourceFile(.{
+                    .file = upstream.path("src/SFML/Window/iOS/CursorImpl.cpp"),
+                    .language = .cpp,
                 });
             },
             else => {},
         }
+    }
+
+    if (target.result.os.tag == .ios) {
+        const main_mod = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libcpp = true,
+            .link_libc = true,
+        });
+
+        main_mod.addCSourceFile(.{
+            .file = upstream.path("src/SFML/Main/MainiOS.mm"),
+            .language = .objective_cpp,
+            .flags = &.{"-fobjc-arc"},
+        });
+        main_mod.addIncludePath(upstream.path("include"));
+        main_mod.addIncludePath(upstream.path("src"));
+        main_mod.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/System/Library/Frameworks" }) });
+        main_mod.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/System/Library/SubFrameworks" }) });
+        main_mod.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ b.sysroot.?, "/usr/include" }) });
+        main_mod.linkFramework("UIKit", .{});
+        main_mod.linkFramework("UIUtilities", .{});
+        main_mod.linkFramework("QuartzCore", .{});
+        main_mod.linkFramework("CoreGraphics", .{});
+        main_mod.linkFramework("CoreMotion", .{});
+        main_mod.linkFramework("Foundation", .{});
+
+        const libmain = b.addLibrary(.{
+            .name = "sfml-main",
+            .linkage = .static,
+            .root_module = main_mod,
+        });
+        main_mod.linkLibrary(libwindow);
+        b.installArtifact(libmain);
     }
 
     libsystem.installHeadersDirectory(

@@ -52,6 +52,7 @@ pub fn build(b: *std.Build) void {
 
     module.addConfigHeader(config_header);
     module.addCMacro("HAVE_CONFIG_H", "1");
+    module.addCMacro("FLAC_NO_DLL", "1");
     module.addIncludePath(config_header.getOutput().dirname());
     module.addIncludePath(flac.path("include"));
     module.addIncludePath(flac.path("src/libFLAC/include"));
