@@ -8,6 +8,9 @@
         "Library.zig",
         "build.zig",
         "build.zig.zon",
+        "flac",
+        "vorbis",
+        "sheenbidi",
     },
     .dependencies = .{
         .sfml = .{
